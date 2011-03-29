@@ -1,7 +1,7 @@
 -module(rabbit_metronome_worker).
 -behaviour(gen_server).
 
--export([start/0, start/2, stop/0, stop/1, start_link/0]).
+-export([start_link/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -14,19 +14,6 @@
 
 -define(RKFormat,
         "~4.10.0B.~2.10.0B.~2.10.0B.~1.10.0B.~2.10.0B.~2.10.0B.~2.10.0B").
-
-start() ->
-    start_link(),
-    ok.
-
-start(normal, []) ->
-    start_link().
-
-stop() ->
-    ok.
-
-stop(_State) ->
-    stop().
 
 start_link() ->
     gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).

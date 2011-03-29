@@ -30,8 +30,8 @@ start_link() ->
 % --------------------------
 
 init([]) ->
-  Connection = amqp_connection:start_direct(),
-  Channel = amqp_connection:open_channel(Connection),
+  {ok, Connection} = amqp_connection:start(direct),
+  {ok, Channel} = amqp_connection:open_channel(Connection),
   amqp_channel:call(Channel, #'exchange.declare'{exchange = <<"metronome">>,
                                                  type = <<"topic">>}),
 

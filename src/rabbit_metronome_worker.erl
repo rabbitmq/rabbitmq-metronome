@@ -6,6 +6,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
+-export([fire/0]).
+
 -include_lib("amqp_client/include/amqp_client.hrl").
 
 -record(state, {channel}).
@@ -38,10 +40,13 @@ init([]) ->
     {ok, Channel} = amqp_connection:open_channel(Connection),
     amqp_channel:call(Channel, #'exchange.declare'{exchange = <<"metronome">>,
                                                    type = <<"topic">>}),
-    timer:apply_after(1000, gen_server, call, [{global, ?MODULE}, fire]),
+    fire(),
     {ok, #state{channel = Channel}}.
 
-handle_call(fire, _From, State = #state{channel = Channel}) ->
+handle_call(_Msg, _From, State) ->
+    {reply, unknown_command, State}.
+
+handle_cast(fire, State = #state{channel = Channel}) ->
     Properties = #'P_basic'{content_type = <<"text/plain">>, delivery_mode = 1},
     {Date={Year,Month,Day},{Hour, Min,Sec}} = erlang:universaltime(),
     DayOfWeek = calendar:day_of_the_week(Date),
@@ -53,21 +58,23 @@ handle_call(fire, _From, State = #state{channel = Channel}) ->
                                     routing_key = RoutingKey},
     Content = #amqp_msg{props = Properties, payload = Message},
     amqp_channel:call(Channel, BasicPublish, Content),
-    timer:apply_after(1000, gen_server, call, [{global, ?MODULE}, fire]),
-    {reply, ok, State};
+    timer:apply_after(1000, ?MODULE, fire, []),
+    {noreply, State};
 
-handle_call(_Msg, _From, State) ->
-    {reply, unknown_command, State}.
-
-handle_cast(_,State) ->
+handle_cast(_, State) ->
     {noreply,State}.
 
 handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(_,#state{channel = Channel}) ->
+terminate(_, #state{channel = Channel}) ->
     amqp_channel:call(Channel, #'channel.close'{}),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+%---------------------------
+
+fire() ->
+    gen_server:cast({global, ?MODULE}, fire).

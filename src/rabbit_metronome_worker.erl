@@ -1,3 +1,6 @@
+%% Copyright (c) 2007-2011 VMware, Inc.
+%% You may use this code for any purpose.
+
 -module(rabbit_metronome_worker).
 -behaviour(gen_server).
 

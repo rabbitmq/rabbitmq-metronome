@@ -1,4 +1,4 @@
-{application, rabbit_metronome,
+{application, rabbitmq_metronome,
  [{description, "Embedded Rabbit Metronome"},
   {vsn, "0.01"},
   {modules, [

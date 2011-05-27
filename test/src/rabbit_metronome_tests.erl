@@ -7,7 +7,7 @@
 -include_lib("amqp_client/include/amqp_client.hrl").
 
 receive_tick_test() ->
-    {ok, Connection} = amqp_connection:start(direct),
+    {ok, Connection} = amqp_connection:start(#amqp_params_direct{}),
     {ok, Channel} = amqp_connection:open_channel(Connection),
     #'queue.declare_ok'{queue = Q}
         = amqp_channel:call(Channel, #'queue.declare'{exclusive = true,

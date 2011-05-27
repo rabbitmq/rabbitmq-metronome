@@ -3,7 +3,5 @@ syntax: regexp
 ^build/
 ^dist/
 .*\.beam
-^ebin/rabbit_metronome.app
 ^cover/
 ^tmp/
-^ebin/rabbitmq_metronome.app$

@@ -5,3 +5,4 @@ syntax: regexp
 .*\.beam
 ^cover/
 ^tmp/
+^ebin/rabbitmq_metronome\.app$

@@ -1,4 +1,4 @@
-%% Copyright (c) 2007-2013 VMware, Inc.
+%% Copyright (c) 2007-2013 GoPivotal, Inc.
 %% You may use this code for any purpose.
 
 -module(rabbit_metronome_worker).

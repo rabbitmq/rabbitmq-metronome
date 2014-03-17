@@ -1,4 +1,4 @@
-%% Copyright (c) 2007-2013 GoPivotal, Inc.
+%% Copyright (c) 2007-2014 GoPivotal, Inc.
 %% You may use this code for any purpose.
 
 -module(rabbit_metronome).

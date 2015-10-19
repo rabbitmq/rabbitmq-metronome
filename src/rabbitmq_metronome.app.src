@@ -1,6 +1,6 @@
 {application, rabbitmq_metronome,
  [{description, "Embedded Rabbit Metronome"},
-  {vsn, "0.01"},
+  {vsn, ""},
   {modules, []},
   {registered, []},
   {mod, {rabbit_metronome, []}},

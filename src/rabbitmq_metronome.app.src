@@ -4,5 +4,5 @@
   {modules, []},
   {registered, []},
   {mod, {rabbit_metronome, []}},
-  {env, []},
+  {env, [{exchange, <<"metronome">>}]},
   {applications, [kernel, stdlib, rabbit, amqp_client]}]}.

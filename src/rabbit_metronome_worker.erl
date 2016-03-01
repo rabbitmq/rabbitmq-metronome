@@ -13,7 +13,7 @@
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
--record(state, {channel}).
+-record(state, {channel, exchange}).
 
 -define(RKFormat,
         "~4.10.0B.~2.10.0B.~2.10.0B.~1.10.0B.~2.10.0B.~2.10.0B.~2.10.0B").
@@ -28,15 +28,16 @@ start_link() ->
 init([]) ->
     {ok, Connection} = amqp_connection:start(#amqp_params_direct{}),
     {ok, Channel} = amqp_connection:open_channel(Connection),
-    amqp_channel:call(Channel, #'exchange.declare'{exchange = <<"metronome">>,
+    {ok, Exchange} = application:get_env(rabbitmq_metronome, exchange),
+    amqp_channel:call(Channel, #'exchange.declare'{exchange = Exchange,
                                                    type = <<"topic">>}),
     fire(),
-    {ok, #state{channel = Channel}}.
+    {ok, #state{channel = Channel, exchange = Exchange}}.
 
 handle_call(_Msg, _From, State) ->
     {reply, unknown_command, State}.
 
-handle_cast(fire, State = #state{channel = Channel}) ->
+handle_cast(fire, State = #state{channel = Channel, exchange = Exchange}) ->
     Properties = #'P_basic'{content_type = <<"text/plain">>, delivery_mode = 1},
     {Date={Year,Month,Day},{Hour, Min,Sec}} = erlang:universaltime(),
     DayOfWeek = calendar:day_of_the_week(Date),
@@ -44,7 +45,7 @@ handle_cast(fire, State = #state{channel = Channel}) ->
                    io_lib:format(?RKFormat, [Year, Month, Day,
                                              DayOfWeek, Hour, Min, Sec])),
     Message = RoutingKey,
-    BasicPublish = #'basic.publish'{exchange = <<"metronome">>,
+    BasicPublish = #'basic.publish'{exchange = Exchange,
                                     routing_key = RoutingKey},
     Content = #amqp_msg{props = Properties, payload = Message},
     amqp_channel:call(Channel, BasicPublish, Content),

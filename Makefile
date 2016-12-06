@@ -1,4 +1,6 @@
 PROJECT = rabbitmq_metronome
+PROJECT_DESCRIPTION = Embedded Rabbit Metronome
+PROJECT_MOD = rabbit_metronome
 
 DEPS = rabbit_common rabbit amqp_client
 TEST_DEPS = rabbitmq_ct_helpers rabbitmq_ct_client_helpers

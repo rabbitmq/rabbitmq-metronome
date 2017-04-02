@@ -1,4 +1,4 @@
-%% Copyright (c) 2007-2016 Pivotal Software, Inc.
+%% Copyright (c) 2007-2017 Pivotal Software, Inc.
 %% You may use this code for any purpose.
 
 -module(rabbit_metronome_worker).

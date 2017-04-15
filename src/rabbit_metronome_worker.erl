@@ -48,16 +48,13 @@ predef_user_name() ->
   {ok, Predef_user_name} = application:get_env(rabbitmq_metronome, predef_user_name),
   Predef_user_name.
 
-check_auth(Idstr) -> case re:run(Idstr, "^oauth@([0-9]+)$", [{capture, all_but_first, list}]) of
-                       {match, [Id]} -> {gis, Id};
-                       _ -> case re:run(Idstr, "^" ++ predef_user_name() ++ "$", [{capture, all_but_first, list}]) of
+guess_auth_type(Idstr) -> case re:run(Idstr, "^" ++ predef_user_name() ++ "$", [{capture, all_but_first, list}]) of
                               {match, _} -> {maybe_predef, Idstr};
-                              _ -> {hardware, Idstr}
-                            end
+                              _ -> {checkindb, Idstr}
                      end.
 
-check_login({hardware, SerialNumStr, Password, CONN}) ->
-  epgsql:equery(CONN, "select count(*) from device where serial_number = $1 and icc_id = $2", [SerialNumStr, Password]);
+check_login({checkindb, SerialNumStr, Password, CONN}) ->
+  epgsql:equery(CONN, "select count(*) from authentication where name = $1 and password = $2", [SerialNumStr, Password]);
 
 check_login({maybe_predef, DroneIdStr, Password, _CONN}) ->
   {ok, Predef_user_name} = application:get_env(rabbitmq_metronome, predef_user_name),
@@ -84,7 +81,7 @@ handle_call({login, Username, AuthProps}, _From, State) ->
   {ok, CONN} = get_db_conn(),
   U = binary:bin_to_list(Username),
   P = extract_pwd_as_str(AuthProps),
-  {ItsType, DroneIdStr} = check_auth(U),
+  {ItsType, DroneIdStr} = guess_auth_type(U),
   SelectRes = check_login({ItsType, DroneIdStr, P, CONN}),
 %%  io:format("~p~n", [SelectRes]),
   Res = case SelectRes of

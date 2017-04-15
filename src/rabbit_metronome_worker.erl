@@ -56,16 +56,6 @@ check_auth(Idstr) -> case re:run(Idstr, "^oauth@([0-9]+)$", [{capture, all_but_f
                             end
                      end.
 
-check_login({gis, ClientIdStr, Password, CONN}) ->
-  ClientId = list_to_integer(ClientIdStr),
-  epgsql:equery(CONN,
-    "select count(c.id) from client c " ++
-      "inner join drone dr on c.drone_id = dr.id " ++
-      "inner join oauthclientid_organization oo on dr.organization_id = oo.organization_id " ++
-      "inner join oauth_access_token oat on oo.client_id = oat.client_id " ++
-      "inner join oauth_client_details ocd on ocd.client_id = oat.client_id where " ++
-      "c.id = $1 and ext(encode(oat.token::bytea, 'escape'), $2)", [ClientId, Password]);
-
 check_login({hardware, SerialNumStr, Password, CONN}) ->
   epgsql:equery(CONN, "select count(*) from device where serial_number = $1 and icc_id = $2", [SerialNumStr, Password]);
 

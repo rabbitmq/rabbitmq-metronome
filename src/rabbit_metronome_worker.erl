@@ -1,71 +1,119 @@
-%% Copyright (c) 2007-2017 Pivotal Software, Inc.
+%% Copyright (c) 2007-2016 Pivotal Software, Inc.
 %% You may use this code for any purpose.
 
 -module(rabbit_metronome_worker).
+
+-include_lib("epgsql/include/epgsql.hrl").
+
 -behaviour(gen_server).
+-behaviour(rabbit_authn_backend).
 
 -export([start_link/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3]).
-
--export([fire/0]).
+  terminate/2, code_change/3,
+  user_login_authentication/2, user_login_authorization/1]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
--record(state, {channel, exchange}).
+-define(SERVER, ?MODULE).
+
+-record(state, {}).
 
 -define(RKFormat,
-        "~4.10.0B.~2.10.0B.~2.10.0B.~1.10.0B.~2.10.0B.~2.10.0B.~2.10.0B").
+  "~4.10.0B.~2.10.0B.~2.10.0B.~1.10.0B.~2.10.0B.~2.10.0B.~2.10.0B").
 
 start_link() ->
-    gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
+  gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 %---------------------------
 % Gen Server Implementation
 % --------------------------
 
 init([]) ->
-    {ok, Connection} = amqp_connection:start(#amqp_params_direct{}),
-    {ok, Channel} = amqp_connection:open_channel(Connection),
-    {ok, Exchange} = application:get_env(rabbitmq_metronome, exchange),
-    amqp_channel:call(Channel, #'exchange.declare'{exchange = Exchange,
-                                                   type = <<"topic">>}),
-    fire(),
-    {ok, #state{channel = Channel, exchange = Exchange}}.
+  {ok, #state{}}.
 
-handle_call(_Msg, _From, State) ->
-    {reply, unknown_command, State}.
+user_login_authentication(Username, AuthProps) ->
+  gen_server:call(?SERVER, {login, Username, AuthProps}, infinity).
 
-handle_cast(fire, State = #state{channel = Channel, exchange = Exchange}) ->
-    Properties = #'P_basic'{content_type = <<"text/plain">>, delivery_mode = 1},
-    {Date={Year,Month,Day},{Hour, Min,Sec}} = erlang:universaltime(),
-    DayOfWeek = calendar:day_of_the_week(Date),
-    RoutingKey = list_to_binary(
-                   io_lib:format(?RKFormat, [Year, Month, Day,
-                                             DayOfWeek, Hour, Min, Sec])),
-    Message = RoutingKey,
-    BasicPublish = #'basic.publish'{exchange = Exchange,
-                                    routing_key = RoutingKey},
-    Content = #amqp_msg{props = Properties, payload = Message},
-    amqp_channel:call(Channel, BasicPublish, Content),
-    timer:apply_after(1000, ?MODULE, fire, []),
-    {noreply, State};
+user_login_authorization(Username) ->
+  gen_server:call(?SERVER, {authorization, Username}, infinity).
+
+extract_pwd_as_str(AuthProps) ->
+  Tup_password = lists:keyfind(password, 1, AuthProps),
+  Password = element(2, Tup_password),
+  binary:bin_to_list(Password).
+
+predef_user_name() ->
+  {ok, Predef_user_name} = application:get_env(rabbitmq_metronome, predef_user_name),
+  Predef_user_name.
+
+check_auth(Idstr) -> case re:run(Idstr, "^oauth@([0-9]+)$", [{capture, all_but_first, list}]) of
+                       {match, [Id]} -> {gis, Id};
+                       _ -> case re:run(Idstr, "^" ++ predef_user_name() ++ "$", [{capture, all_but_first, list}]) of
+                              {match, _} -> {maybe_predef, Idstr};
+                              _ -> {hardware, Idstr}
+                            end
+                     end.
+
+check_login({gis, ClientIdStr, Password, CONN}) ->
+  ClientId = list_to_integer(ClientIdStr),
+  epgsql:equery(CONN,
+    "select count(c.id) from client c " ++
+      "inner join drone dr on c.drone_id = dr.id " ++
+      "inner join oauthclientid_organization oo on dr.organization_id = oo.organization_id " ++
+      "inner join oauth_access_token oat on oo.client_id = oat.client_id " ++
+      "inner join oauth_client_details ocd on ocd.client_id = oat.client_id where " ++
+      "c.id = $1 and ext(encode(oat.token::bytea, 'escape'), $2)", [ClientId, Password]);
+
+check_login({hardware, SerialNumStr, Password, CONN}) ->
+  epgsql:equery(CONN, "select count(*) from device where serial_number = $1 and icc_id = $2", [SerialNumStr, Password]);
+
+check_login({maybe_predef, DroneIdStr, Password, _CONN}) ->
+  {ok, Predef_user_name} = application:get_env(rabbitmq_metronome, predef_user_name),
+  {ok, Predef_passwd} = application:get_env(rabbitmq_metronome, predef_user_password),
+  io:format("In predef - Predef_User = ~p, Predef_Password = ~p~n", [Predef_user_name, Predef_passwd]),
+
+  case {string:equal(DroneIdStr, Predef_user_name), string:equal(Password, Predef_passwd)} of
+    {true, true} -> {ok, "OK", [{1}]};
+    _ -> {nomatch, "No", [{0}]}
+  end.
+
+get_db_conn() ->
+  {ok, PG_Host} = application:get_env(rabbitmq_metronome, postgres_host),
+  {ok, PG_Username} = application:get_env(rabbitmq_metronome, postgres_user),
+  {ok, PG_Password} = application:get_env(rabbitmq_metronome, postgres_passwd),
+  {ok, PG_Database} = application:get_env(rabbitmq_metronome, postgres_db),
+  {ok, PG_Query_Timeout} = application:get_env(rabbitmq_metronome, postgres_query_timeout),
+  epgsql:connect(PG_Host, PG_Username, PG_Password, [
+    {database, PG_Database},
+    {timeout, PG_Query_Timeout}
+  ]).
+
+handle_call({login, Username, AuthProps}, _From, State) ->
+  {ok, CONN} = get_db_conn(),
+  U = binary:bin_to_list(Username),
+  P = extract_pwd_as_str(AuthProps),
+  {ItsType, DroneIdStr} = check_auth(U),
+  SelectRes = check_login({ItsType, DroneIdStr, P, CONN}),
+%%  io:format("~p~n", [SelectRes]),
+  Res = case SelectRes of
+          {ok, _, [{K}]} when K > 0 -> {ok, #auth_user{username = Username,
+            tags = [administrator],
+            impl = none}};
+          _ -> {refused, "Denied by Metronome plugin", []}
+        end,
+  ok = epgsql:close(CONN),
+  {reply, Res, State}.
 
 handle_cast(_, State) ->
-    {noreply,State}.
+  {noreply, State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+  {noreply, State}.
 
-terminate(_, #state{channel = Channel}) ->
-    amqp_channel:call(Channel, #'channel.close'{}),
-    ok.
+terminate(_, #state{}) ->
+  ok.
 
 code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
-%---------------------------
-
-fire() ->
-    gen_server:cast({global, ?MODULE}, fire).
+  {ok, State}.

@@ -1,16 +1,16 @@
-PROJECT = rabbitmq_metronome
-PROJECT_DESCRIPTION = Embedded Rabbit Metronome
-PROJECT_MOD = rabbit_metronome
+PROJECT = rabbitmq_pg_auth
+PROJECT_DESCRIPTION = Rabbitmq Postgresql driven authentication
+PROJECT_MOD = rabbit_pgauth
 
 define PROJECT_ENV
 [
-	    {exchange, <<"metronome">>}
-	  ]
+	{postgres_host, "ll"}
+	
+	]
 endef
+	
 
-# DEPS = rabbit_common rabbit amqp_client
-# TEST_DEPS = rabbitmq_ct_helpers rabbitmq_ct_client_helpers
-DEPS = rabbit_common rabbit amqp_client rabbitmq_management epgsql rabbitmq_mqtt 
+DEPS = rabbit_common rabbit amqp_client rabbitmq_management epgsql rabbitmq_mqtt
 
 DEP_PLUGINS = rabbit_common/mk/rabbitmq-plugin.mk
 

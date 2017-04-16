@@ -2,14 +2,6 @@ PROJECT = rabbitmq_pg_auth
 PROJECT_DESCRIPTION = Rabbitmq Postgresql driven authentication
 PROJECT_MOD = rabbit_pgauth
 
-define PROJECT_ENV
-[
-	{postgres_host, "ll"}
-	
-	]
-endef
-	
-
 DEPS = rabbit_common rabbit amqp_client rabbitmq_management epgsql rabbitmq_mqtt
 
 DEP_PLUGINS = rabbit_common/mk/rabbitmq-plugin.mk

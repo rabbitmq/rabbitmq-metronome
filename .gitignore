@@ -12,3 +12,4 @@
 .idea/
 
 /rabbitmq_metronome.d
+/rabbitmq_pg_auth.d

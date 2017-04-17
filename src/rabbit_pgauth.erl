@@ -1,14 +1,14 @@
-%% Copyright (c) 2007-2017 Pivotal Software, Inc.
+%% Copyright (c) 2007-2016 Pivotal Software, Inc.
 %% You may use this code for any purpose.
 
--module(rabbit_metronome).
+-module(rabbit_pgauth).
 
 -behaviour(application).
 
 -export([start/2, stop/1]).
 
 start(normal, []) ->
-    rabbit_metronome_sup:start_link().
+    rabbit_pgauth_sup:start_link().
 
 stop(_State) ->
     ok.

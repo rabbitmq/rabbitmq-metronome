@@ -26,17 +26,21 @@ start_link() ->
 % --------------------------
 
 init([]) ->
-    {ok, Connection} = amqp_connection:start(#amqp_params_direct{}),
-    {ok, Channel} = amqp_connection:open_channel(Connection),
-    {ok, Exchange} = application:get_env(rabbitmq_metronome, exchange),
-    amqp_channel:call(Channel, #'exchange.declare'{exchange = Exchange,
-                                                   type = <<"topic">>}),
     fire(),
-    {ok, #state{channel = Channel, exchange = Exchange}}.
+    {ok, #state{}}.
 
 handle_call(_Msg, _From, State) ->
     {reply, unknown_command, State}.
 
+handle_cast(Msg, #state{channel = undefined} = State) ->
+    case rabbit:is_running() of
+        true ->
+            State1 = open_connection(State),
+            handle_cast(Msg, State1);
+        false ->
+            timer:sleep(1000),
+            handle_cast(Msg, State)
+    end;
 handle_cast(fire, State = #state{channel = Channel, exchange = Exchange}) ->
     Properties = #'P_basic'{content_type = <<"text/plain">>, delivery_mode = 1},
     {Date={Year,Month,Day},{Hour, Min,Sec}} = erlang:universaltime(),
@@ -58,6 +62,8 @@ handle_cast(_, State) ->
 handle_info(_Info, State) ->
     {noreply, State}.
 
+terminate(_, #state{channel = undefined}) ->
+    ok;
 terminate(_, #state{channel = Channel}) ->
     amqp_channel:call(Channel, #'channel.close'{}),
     ok.
@@ -66,6 +72,14 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %---------------------------
+
+open_connection(State) ->
+    {ok, Connection} = amqp_connection:start(#amqp_params_direct{}),
+    {ok, Channel} = amqp_connection:open_channel(Connection),
+    {ok, Exchange} = application:get_env(rabbitmq_metronome, exchange),
+    amqp_channel:call(Channel, #'exchange.declare'{exchange = Exchange,
+                                                   type = <<"topic">>}),
+    State#state{channel = Channel, exchange = Exchange}.
 
 fire() ->
     gen_server:cast({global, ?MODULE}, fire).

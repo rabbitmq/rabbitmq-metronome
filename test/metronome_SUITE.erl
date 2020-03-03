@@ -58,6 +58,7 @@ receive_tick(Config) ->
     #'queue.declare_ok'{queue = Q}
         = amqp_channel:call(Channel, #'queue.declare'{exclusive = true,
                                                       auto_delete = true}),
+    timer:sleep(3000),
     #'queue.bind_ok'{}
         = amqp_channel:call(Channel, #'queue.bind'{queue = Q,
                                                    exchange = <<"metronome">>,

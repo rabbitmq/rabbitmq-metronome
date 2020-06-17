@@ -1,4 +1,4 @@
-%% Copyright (c) 2007-2020 Pivotal Software, Inc.
+%% Copyright (c) 2007-2020 VMware, Inc. or its affiliates.
 %% You may use this code for any purpose.
 
 -module(rabbit_metronome).

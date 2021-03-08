@@ -15,3 +15,6 @@
 /sbin.lock
 
 /rabbitmq_metronome.d
+
+/.bazelrc
+/bazel-*

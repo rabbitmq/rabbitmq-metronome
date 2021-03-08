@@ -1,0 +1,84 @@
+load(
+    "@rabbitmq-server//:rabbitmq.bzl",
+    "RABBITMQ_ERLC_OPTS",
+    "RABBITMQ_TEST_ERLC_OPTS",
+    "rabbitmq_lib",
+)
+load("@rabbitmq-server//:rabbitmq_home.bzl", "rabbitmq_home")
+load("@rabbitmq-server//:rabbitmq_run.bzl", "rabbitmq_run", "rabbitmq_run_command")
+load("@rabbitmq-server//:rabbitmqctl.bzl", "rabbitmqctl")
+load("@bazel-erlang//:ct.bzl", "ct_suite")
+
+APP_ENV = """[
+	    {exchange, <<"metronome">>}
+	  ]"""
+
+DEPS = [
+    "@rabbitmq-server//deps/rabbit_common:bazel_erlang_lib",
+    "@rabbitmq-server//deps/amqp_client:bazel_erlang_lib",
+]
+
+RUNTIME_DEPS = [
+    "@rabbitmq-server//deps/rabbit:bazel_erlang_lib",
+]
+
+rabbitmq_lib(
+    app_description = "Embedded Rabbit Metronome",
+    app_env = APP_ENV,
+    app_module = "rabbit_metronome",
+    app_name = "rabbitmq_metronome",
+    runtime_deps = RUNTIME_DEPS,
+    deps = DEPS,
+)
+
+rabbitmq_home(
+    name = "broker-home",
+    plugins = [
+        "@rabbitmq-server//deps/rabbit:bazel_erlang_lib",
+        ":bazel_erlang_lib",
+    ],
+)
+
+rabbitmq_run(
+    name = "rabbitmq-run",
+    home = ":broker-home",
+)
+
+rabbitmq_run_command(
+    name = "broker",
+    rabbitmq_run = ":rabbitmq-run",
+    subcommand = "run-broker",
+)
+
+rabbitmqctl(
+    name = "rabbitmqctl",
+    home = ":broker-home",
+)
+
+ct_suite(
+    name = "metronome_SUITE",
+    data = [
+        "@rabbitmq_ct_helpers//tools/tls-certs:Makefile",
+        "@rabbitmq_ct_helpers//tools/tls-certs:openssl.cnf.in",
+    ],
+    erlc_opts = RABBITMQ_TEST_ERLC_OPTS,
+    test_env = {
+        "RABBITMQ_CT_SKIP_AS_ERROR": "true",
+        "RABBITMQ_RUN": "$TEST_SRCDIR/$TEST_WORKSPACE/rabbitmq-run",
+        "RABBITMQCTL": "$TEST_SRCDIR/$TEST_WORKSPACE/broker-home/sbin/rabbitmqctl",
+        "RABBITMQ_PLUGINS": "$TEST_SRCDIR/$TEST_WORKSPACE/broker-home/sbin/rabbitmq-plugins",
+    },
+    tools = [
+        ":rabbitmq-run",
+    ],
+    runtime_deps = [
+        "@rabbitmq-server//deps/rabbitmq_cli:elixir_as_bazel_erlang_lib",
+        "@rabbitmq-server//deps/rabbitmq_cli:rabbitmqctl",
+        "@rabbitmq_ct_client_helpers//:bazel_erlang_lib",
+        "@rabbitmq_ct_helpers//:bazel_erlang_lib",
+    ],
+    deps = [
+        "@rabbitmq-server//deps/amqp_client:bazel_erlang_lib",
+        "@rabbitmq-server//deps/rabbit_common:bazel_erlang_lib",
+    ],
+)

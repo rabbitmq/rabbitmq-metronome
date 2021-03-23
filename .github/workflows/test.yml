@@ -18,3 +18,13 @@ jobs:
       run: make dialyze
     - name: TEST
       run: make tests
+    - name: ON FAILRUE ARCHIVE TESTS LOGS
+      if: failure()
+      run: |
+        make ct-logs-archive
+    - name: ON FAILURE UPLOAD TESTS LOGS ARTIFACT
+      uses: actions/upload-artifact@v2-preview
+      if: failure()
+      with:
+        name: ct-logs
+        path: "*-ct-logs-*.tar.xz"

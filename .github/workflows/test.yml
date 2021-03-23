@@ -1,0 +1,20 @@
+name: Test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        otp: [23.2]
+    steps:
+    - name: CHECKOUT
+      uses: actions/checkout@v2
+    - name: CONFIGURE OTP & ELIXIR
+      uses: actions/setup-elixir@v1
+      with:
+        otp-version: ${{ matrix.otp }}
+        elixir-version: 1.10.4
+    - name: DIALYZE
+      run: make dialyze
+    - name: TEST
+      run: make tests

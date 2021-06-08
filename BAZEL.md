@@ -16,7 +16,7 @@ Adjusting the paths as needed. On macOS, you will also want to add `build --spaw
 
 You can then run the test suite with `bazel test //...`
 
-## Start the broker with the Management and Metronome plugins
+## Start the broker with the Metronome plugin
 
 `bazel run broker`
 

@@ -1,7 +1,7 @@
 name: Test
 on: push
 jobs:
-  build:
+  test:
     runs-on: ubuntu-18.04
     strategy:
       matrix:
@@ -28,3 +28,40 @@ jobs:
       with:
         name: ct-logs
         path: "*-ct-logs-*.tar.xz"
+  test-bazel:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+        - erlang_version: "25.1"
+          elixir_version: 1.14.0
+    timeout-minutes: 30
+    steps:
+    - name: CHECKOUT REPOSITORY
+      uses: actions/checkout@v3
+    - name: CONFIGURE OTP & ELIXIR
+      uses: erlef/setup-beam@v1.13
+      with:
+        otp-version: ${{ matrix.erlang_version }}
+        elixir-version: ${{ matrix.elixir_version }}
+    - name: MOUNT BAZEL CACHE
+      uses: actions/cache@v3.0.10
+      with:
+        path: "/home/runner/repo-cache/"
+        key: repo-cache
+    - name: CONFIGURE BAZEL
+      run: |
+        ERLANG_HOME="$(dirname $(dirname $(which erl)))"
+        ELIXIR_HOME="$(dirname $(dirname $(which iex)))"
+        cat << EOF >> .bazelrc
+          build --repository_cache=/home/runner/repo-cache/
+          build --color=yes
+          build --disk_cache=
+
+          build --incompatible_strict_action_env
+          build --local_test_jobs=1
+        EOF
+    - name: RUN TESTS
+      run: |
+        bazelisk test //... \
+          --verbose_failures

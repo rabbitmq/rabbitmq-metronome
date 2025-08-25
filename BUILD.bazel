@@ -1,28 +1,38 @@
 load(
     "@rabbitmq-server//:rabbitmq.bzl",
-    "RABBITMQ_ERLC_OPTS",
+    "RABBITMQ_DIALYZER_OPTS",
     "RABBITMQ_TEST_ERLC_OPTS",
-    "rabbitmq_lib",
+    "rabbitmq_app",
 )
 load("@rabbitmq-server//:rabbitmq_home.bzl", "rabbitmq_home")
 load("@rabbitmq-server//:rabbitmq_run.bzl", "rabbitmq_run", "rabbitmq_run_command")
 load("@rabbitmq-server//:rabbitmqctl.bzl", "rabbitmqctl")
-load("@bazel-erlang//:ct.bzl", "ct_suite")
+load("@rules_erlang//:xref2.bzl", "xref")
+load("@rules_erlang//:dialyze.bzl", "dialyze", "plt")
+load("@rules_erlang//:ct.bzl", "assert_suites", "ct_suite")
+load("@rules_erlang//:shell.bzl", "shell")
 
 APP_ENV = """[
 	    {exchange, <<"metronome">>}
 	  ]"""
 
 DEPS = [
-    "@rabbitmq-server//deps/rabbit_common:bazel_erlang_lib",
-    "@rabbitmq-server//deps/amqp_client:bazel_erlang_lib",
+    "@rabbitmq-server//deps/rabbit_common:erlang_app",
+    "@rabbitmq-server//deps/amqp_client:erlang_app",
 ]
 
 RUNTIME_DEPS = [
-    "@rabbitmq-server//deps/rabbit:bazel_erlang_lib",
+    "@rabbitmq-server//deps/rabbit:erlang_app",
 ]
 
-rabbitmq_lib(
+config_setting(
+    name = "debug_build",
+    values = {
+        "compilation_mode": "dbg",
+    },
+)
+
+rabbitmq_app(
     app_description = "Embedded Rabbit Metronome",
     app_env = APP_ENV,
     app_module = "rabbit_metronome",
@@ -31,11 +41,23 @@ rabbitmq_lib(
     deps = DEPS,
 )
 
+xref()
+
+plt(
+    name = "base_plt",
+    deps = DEPS + RUNTIME_DEPS,
+)
+
+dialyze(
+    dialyzer_opts = RABBITMQ_DIALYZER_OPTS,
+    plt = ":base_plt",
+)
+
 rabbitmq_home(
     name = "broker-home",
     plugins = [
-        "@rabbitmq-server//deps/rabbit:bazel_erlang_lib",
-        ":bazel_erlang_lib",
+        "@rabbitmq-server//deps/rabbit:erlang_app",
+        ":erlang_app",
     ],
 )
 
@@ -55,30 +77,40 @@ rabbitmqctl(
     home = ":broker-home",
 )
 
-ct_suite(
-    name = "metronome_SUITE",
-    data = [
-        "@rabbitmq_ct_helpers//tools/tls-certs:Makefile",
-        "@rabbitmq_ct_helpers//tools/tls-certs:openssl.cnf.in",
-    ],
-    erlc_opts = RABBITMQ_TEST_ERLC_OPTS,
-    test_env = {
-        "RABBITMQ_CT_SKIP_AS_ERROR": "true",
-        "RABBITMQ_RUN": "$TEST_SRCDIR/$TEST_WORKSPACE/rabbitmq-run",
-        "RABBITMQCTL": "$TEST_SRCDIR/$TEST_WORKSPACE/broker-home/sbin/rabbitmqctl",
-        "RABBITMQ_PLUGINS": "$TEST_SRCDIR/$TEST_WORKSPACE/broker-home/sbin/rabbitmq-plugins",
-    },
-    tools = [
-        ":rabbitmq-run",
-    ],
-    runtime_deps = [
-        "@rabbitmq-server//deps/rabbitmq_cli:elixir_as_bazel_erlang_lib",
-        "@rabbitmq-server//deps/rabbitmq_cli:rabbitmqctl",
-        "@rabbitmq_ct_client_helpers//:bazel_erlang_lib",
-        "@rabbitmq_ct_helpers//:bazel_erlang_lib",
-    ],
+suites = [
+    ct_suite(
+        name = "metronome_SUITE",
+        erlc_opts = RABBITMQ_TEST_ERLC_OPTS,
+        test_env = {
+            "RABBITMQ_CT_SKIP_AS_ERROR": "true",
+            "RABBITMQ_RUN": "$TEST_SRCDIR/$TEST_WORKSPACE/rabbitmq-run",
+            "RABBITMQCTL": "$TEST_SRCDIR/$TEST_WORKSPACE/broker-home/sbin/rabbitmqctl",
+            "RABBITMQ_PLUGINS": "$TEST_SRCDIR/$TEST_WORKSPACE/broker-home/sbin/rabbitmq-plugins",
+        },
+        tools = [
+            ":rabbitmq-run",
+        ],
+        runtime_deps = [
+            "@rabbitmq-server//bazel/elixir:erlang_app",
+            "@rabbitmq-server//deps/rabbitmq_cli:rabbitmqctl",
+            "@rabbitmq-server//deps/rabbitmq_ct_client_helpers:erlang_app",
+            "@rabbitmq-server//deps/rabbitmq_ct_helpers:erlang_app",
+        ],
+        deps = [
+            "@rabbitmq-server//deps/amqp_client:erlang_app",
+            "@rabbitmq-server//deps/rabbit_common:erlang_app",
+        ],
+    ),
+]
+
+assert_suites(
+    suites,
+    glob(["test/**/*_SUITE.erl"]),
+)
+
+shell(
+    name = "repl",
     deps = [
-        "@rabbitmq-server//deps/amqp_client:bazel_erlang_lib",
-        "@rabbitmq-server//deps/rabbit_common:bazel_erlang_lib",
+        ":erlang_app",
     ],
 )

@@ -1,0 +1,44 @@
+module(
+    name = "rabbitmq_stream_osr_client",
+    version = "1.0.0",
+)
+
+bazel_dep(
+    name = "rules_erlang",
+    version = "3.7.2",
+)
+
+erlang_config = use_extension(
+    "@rules_erlang//bzlmod:extensions.bzl",
+    "erlang_config",
+    dev_dependency = True,
+)
+
+use_repo(
+    erlang_config,
+    "erlang_config",
+)
+
+bazel_dep(
+    name = "rabbitmq-server",
+    version = "3.10.7",
+)
+
+archive_override(
+    module_name = "rabbitmq-server",
+    urls = [
+        "https://github.com/rabbitmq/rabbitmq-server/archive/refs/heads/v3.11.x.zip",
+    ],
+    strip_prefix = "rabbitmq-server-3.11.x",
+)
+
+elixir_config = use_extension(
+    "@rabbitmq-server//bazel/bzlmod:extensions.bzl",
+    "elixir_config",
+    dev_dependency = True,
+)
+
+use_repo(
+    elixir_config,
+    "elixir_config",
+)

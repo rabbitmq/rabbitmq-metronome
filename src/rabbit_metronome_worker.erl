@@ -57,7 +57,7 @@ handle_cast(fire, State = #state{channel = Channel, exchange = Exchange}) ->
                                     routing_key = RoutingKey},
     Content = #amqp_msg{props = Properties, payload = Message},
     amqp_channel:call(Channel, BasicPublish, Content),
-    timer:apply_after(1000, ?MODULE, fire, []),
+    _ = timer:apply_after(1000, ?MODULE, fire, []),
     {noreply, State};
 
 handle_cast(_, State) ->
